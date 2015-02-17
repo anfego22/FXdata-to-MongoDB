@@ -8,8 +8,8 @@ void FXtoBSON::rowFile(){
   csvFile.open(file);
   string line;
   while(getline(csvFile, line)){
-    T++
-      }
+    T++;
+  }
   T -= 1;
   csvFile.close();
 }
@@ -18,7 +18,7 @@ void FXtoBSON::rowFile(){
 void FXtoBSON::headers(){
   csvFile.seekg(0);
   csvFile.open(file);
-  string head, firstline;
+  string cell, firstline;
   getline(csvFile, firstline);
   stringstream lineS(firstline);
   while(getline(lineS, cell, ';')){
@@ -41,10 +41,10 @@ FXtoBSON::FXtoBSON(const string &file_):file(file_){
   getline(csvFile, dropheader);
   while(getline(csvFile, line)){
     stringstream lineS(line);
+    BSONObjBuilder dc;
     for (int i = 0; i!=cols; i++){
       getline(lineS, cell, ';');
       istringstream ss(cell);
-      BSONObjBuilder dc;
       dc.append(names[i], cell);
     }
     BSONObj doc = dc.obj();
@@ -53,7 +53,7 @@ FXtoBSON::FXtoBSON(const string &file_):file(file_){
 }
 
 void FXtoBSON::printBSON(){
-  for (int i = 0; i <= docs.size(); i++){
+  for (int i = 0; i != docs.size(); i++){
     cout << docs[i].toString() << endl;
   }
 }
