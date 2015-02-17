@@ -11,9 +11,8 @@ int main(int argc, char *argv[])
   c.connect("localhost");
   */
   std::string file(argv[1]);
-  FXtoBSON fxbson(file);
+  FXtoBSON fxbson(file, "%Y%m%d%H%M%S");
   fxbson.printBSON();
-  cout << argc << endl;
   return EXIT_SUCCESS;
 }
 

@@ -7,6 +7,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <time.h>
 
 using namespace std;
 using namespace mongo;
@@ -14,12 +15,11 @@ using namespace mongo;
 class FXtoBSON{
  public:
   ifstream csvFile;
-  string file;
+  string file, formatt;
   int T, cols;
-  BSONObjBuilder dc;
   vector<BSONObj> docs;
   vector<string> names;
-  FXtoBSON(const string &file_);
+  FXtoBSON(const string &file_, const string &formatt_);
   void rowFile();
   void printBSON();
   void headers();
