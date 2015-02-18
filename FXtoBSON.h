@@ -1,7 +1,6 @@
 #ifndef FX_TO_BSON
 #define FX_TO_BSON
-#include <cstdlib>
-#include "mongo/client/dbclient.h" // for the driver
+#include "mongo/bson/bson.h"
 #include <iostream>
 #include <sstream>
 #include <fstream>

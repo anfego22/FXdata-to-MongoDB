@@ -7,10 +7,10 @@ DEP = FXtoBSON.h
 all: TT
 
 TT: $(OBJ) 
-	$(CC) $^ -o $@ $(LIBS) $(IDIR) -std=c++11
+	$(CC) $^ -o $@ $(LIBS) $(IDIR) 
 
 %.o: %.cpp $(DEP) 
-	$(CC) $(CFLAGS) $(IDIR) $(LIBS) -c -o $@ $< -std=c++11 
+	$(CC) $(CFLAGS) $(IDIR) $(LIBS) -c -o $@ $<  
 
 clean:
 	rm -rf *o TT

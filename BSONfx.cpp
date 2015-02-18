@@ -6,7 +6,7 @@ using namespace mongo;
 void FXtoBSON::rowFile(){
   if(T == 0){
   csvFile.seekg(0);
-  csvFile.open(file);
+  csvFile.open(file.c_str());
   string line;
   while(getline(csvFile, line)){
     T++;
@@ -19,7 +19,7 @@ void FXtoBSON::rowFile(){
 void FXtoBSON::headers(){
   if(names.size() == 0){
     csvFile.seekg(0);
-    csvFile.open(file);
+    csvFile.open(file.c_str());
     string cell, firstline;
     getline(csvFile, firstline);
     stringstream lineS(firstline);
@@ -41,7 +41,7 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_):
   docs.reserve(T);
   csvFile.seekg(0);
   string dropheader, line, cell;
-  csvFile.open(file);
+  csvFile.open(file.c_str());
   getline(csvFile, dropheader);
   while(getline(csvFile, line)){
     stringstream lineS(line);
