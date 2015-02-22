@@ -24,18 +24,17 @@ void FXtoBSON::headers(){
     getline(csvFile, firstline);
     stringstream lineS(firstline);
     while(getline(lineS, cell, ';')){
-      istringstream ss(cell);
-      string name;
-      ss >> name;
-      names.push_back(name);
+      names.push_back(cell);
     }
     cols = names.size();
     csvFile.close();
   }
 }
 
-FXtoBSON::FXtoBSON(const string &file_, const string &formatt_):
+FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
+		   DBClientConnection &c):
   file(file_), T(0), cols(0), formatt(formatt_){
+  
   rowFile();
   headers();
   docs.reserve(T);
@@ -43,28 +42,45 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_):
   string dropheader, line, cell;
   csvFile.open(file.c_str());
   getline(csvFile, dropheader);
+  BSONArrayBuilder bArr;
+  int j = 0;
   while(getline(csvFile, line)){
     stringstream lineS(line);
-    BSONObjBuilder dc;
+    BSONObjBuilder quotes, YearPair;
+    //BSONObjBuilder Month, Day, Hour, Min;
+    struct tm tempTM;
     for (int i = 0; i!=cols; i++){
       getline(lineS, cell, ';');
+      // This is for convert the string cell to other type
       istringstream ss(cell);
-      if(names[i] == "Date"){
-	struct tm tempTM;
+      if(names[i] == "Date")
 	strptime(cell.c_str(), formatt.c_str(), &tempTM);
-	dc << "Year" << tempTM.tm_year + 1900
-	   << "Month" << tempTM.tm_mon + 1
-	   << "Day" << tempTM.tm_mday
-	   << "Hour" << tempTM.tm_hour
-	   << "Min" << tempTM.tm_min
-	   << "Sec" << tempTM.tm_sec
-	   << "Wday" << tempTM.tm_wday;
-      } else
-	dc.append(names[i], cell);
+      else {
+	double q;
+	ss >> q;
+	quotes.append(names[i], q);
+      }
     }
-    BSONObj doc = dc.obj();
-    docs.push_back(doc);
-  }
+    YearPair << "Year" << tempTM.tm_year + 1900
+	     << "Pair" << "eurusd";
+    //string minute = std::to_string(tempTM.tm_min);
+    if(j!=0){
+      if(dc.obj()["Year"] == YearPair.obj()["Year"]){
+	bArr.append(quotes.obj());
+	YearPair.appendArray("Min", bArr.arr());
+	dc.appendElementsUnique(YearPair.obj());
+      }
+      else {
+	docs.push_back(dc.obj());
+	dc.appendElements(YearPair.obj());
+      }
+    } else {
+      bArr.append(quotes.obj());
+      YearPair.appendArray("Min", bArr.arr());
+      dc.appendElements(YearPair.obj());
+    }
+    j++;
+  } // While end;
 }
 
 void FXtoBSON::printBSON(){

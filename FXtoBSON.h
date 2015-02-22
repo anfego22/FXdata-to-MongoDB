@@ -1,5 +1,6 @@
 #ifndef FX_TO_BSON
 #define FX_TO_BSON
+#include "mongo/client/dbclient.h" // for the driver
 #include "mongo/bson/bson.h"
 #include <iostream>
 #include <sstream>
@@ -16,9 +17,11 @@ class FXtoBSON{
   ifstream csvFile;
   string file, formatt;
   int T, cols;
+  BSONObjBuilder dc;
   vector<BSONObj> docs;
   vector<string> names;
-  FXtoBSON(const string &file_, const string &formatt_);
+  FXtoBSON(const string &file_, const string &formatt_,
+	   DBClientConnection &c);
   void rowFile();
   void printBSON();
   void headers();
