@@ -17,6 +17,14 @@ int main(int argc, char *argv[])
   std::string file(argv[1]);
   FXtoBSON fxbson(file, "%Y%m%d%H%M%S", c);
   fxbson.printBSON();
+  //Print elements in array
+  cout << "First if?:" << fxbson.h << endl;
+  for (BSONObj::iterator it = fxbson.bab.begin();
+       it.more();){
+    BSONElement e = it.next();
+    cout << e.toString() << endl;
+  }
+  //End of array printing Why only one element? 
   return EXIT_SUCCESS;
 }
 

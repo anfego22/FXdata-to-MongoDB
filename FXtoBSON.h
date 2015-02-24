@@ -16,8 +16,9 @@ class FXtoBSON{
  public:
   ifstream csvFile;
   string file, formatt;
-  int T, cols;
-  BSONObjBuilder dc;
+  int T, cols, h;
+  BSONObjBuilder dc, bArr;
+  BSONObj bab;
   vector<BSONObj> docs;
   vector<string> names;
   FXtoBSON(const string &file_, const string &formatt_,

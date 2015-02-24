@@ -33,21 +33,17 @@ void FXtoBSON::headers(){
 
 FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
 		   DBClientConnection &c):
-  file(file_), T(0), cols(0), formatt(formatt_){
-  
+  file(file_), T(0), cols(0), formatt(formatt_), h(0){
   rowFile();
   headers();
-  docs.reserve(T);
   csvFile.seekg(0);
   string dropheader, line, cell;
   csvFile.open(file.c_str());
   getline(csvFile, dropheader);
-  BSONArrayBuilder bArr;
   int j = 0;
   while(getline(csvFile, line)){
     stringstream lineS(line);
     BSONObjBuilder quotes, YearPair;
-    //BSONObjBuilder Month, Day, Hour, Min;
     struct tm tempTM;
     for (int i = 0; i!=cols; i++){
       getline(lineS, cell, ';');
@@ -63,21 +59,29 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
     }
     YearPair << "Year" << tempTM.tm_year + 1900
 	     << "Pair" << "eurusd";
-    //string minute = std::to_string(tempTM.tm_min);
     if(j!=0){
-      if(dc.obj()["Year"] == YearPair.obj()["Year"]){
-	bArr.append(quotes.obj());
-	YearPair.appendArray("Min", bArr.arr());
+      if(dc.asTempObj()["Year"] == YearPair.asTempObj()["Year"]){
+	string min = to_string(tempTM.tm_min);
+	bArr.append(min, quotes.obj());
+	YearPair.append("Min", bArr.asTempObj());
 	dc.appendElementsUnique(YearPair.obj());
-      }
-      else {
-	docs.push_back(dc.obj());
+      } else {
+	docs.push_back(dc.asTempObj());
+	string min = to_string(tempTM.tm_min);
+	bArr.decouple();
+	bArr.append(min, quotes.obj());
+	YearPair.append("Min", bArr.asTempObj());
 	dc.appendElements(YearPair.obj());
       }
     } else {
-      bArr.append(quotes.obj());
-      YearPair.appendArray("Min", bArr.arr());
+      string min = to_string(tempTM.tm_min);
+      bArr.append(min, quotes.obj());
+      YearPair.append("Min", bArr.asTempObj());
       dc.appendElements(YearPair.obj());
+    }
+    if(j==T-1){
+      docs.push_back(dc.obj());
+      bab = bArr.obj();
     }
     j++;
   } // While end;
