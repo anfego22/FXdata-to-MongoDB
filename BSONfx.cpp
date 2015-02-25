@@ -5,14 +5,14 @@ using namespace mongo;
 
 void FXtoBSON::rowFile(){
   if(T == 0){
-  csvFile.seekg(0);
-  csvFile.open(file.c_str());
-  string line;
-  while(getline(csvFile, line)){
-    T++;
-  }
-  T -= 1;
-  csvFile.close();
+    csvFile.seekg(0);
+    csvFile.open(file.c_str());
+    string line;
+    while(getline(csvFile, line)){
+      T++;
+    }
+    T -= 1;
+    csvFile.close();
   }
 }
 
@@ -57,32 +57,29 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
 	quotes.append(names[i], q);
       }
     }
-    YearPair << "Year" << tempTM.tm_year + 1900
+    string month = to_string(tempTM.tm_mon);
+    string day = to_string(tempTM.tm_mday);
+    string hour = to_string(tempTM.tm_hour);
+    string min = to_string(tempTM.tm_min);
+    YearPair << "Year" << 1900 + tempTM.tm_year
 	     << "Pair" << "eurusd";
     if(j!=0){
-      if(dc.asTempObj()["Year"] == YearPair.asTempObj()["Year"]){
-	string min = to_string(tempTM.tm_min);
-	bArr.append(min, quotes.obj());
-	YearPair.append("Min", bArr.asTempObj());
-	dc.appendElementsUnique(YearPair.obj());
-      } else {
-	docs.push_back(dc.asTempObj());
-	string min = to_string(tempTM.tm_min);
-	bArr.decouple();
-	bArr.append(min, quotes.obj());
-	YearPair.append("Min", bArr.asTempObj());
-	dc.appendElements(YearPair.obj());
+      if(tempTM.tm_hour == time0.tm_hour){
+	MIN.append(min, quotes.obj());
+      } else{
+	HOUR.append(to_string(time0.tm_hour), MIN.asTempObj());
+	MIN.decouple();
+	MIN.append(min, quotes.obj());
       }
     } else {
-      string min = to_string(tempTM.tm_min);
-      bArr.append(min, quotes.obj());
-      YearPair.append("Min", bArr.asTempObj());
-      dc.appendElements(YearPair.obj());
+      MIN.append(min, quotes.obj());
     }
-    if(j==T-1){
-      docs.push_back(dc.obj());
-      bab = bArr.obj();
+    if(j == T-1){
+      HOUR.append(hour, MIN.obj());
+      YearPair.append("Price", HOUR.obj());
+      docs.push_back(YearPair.obj());
     }
+    time0 = tempTM;
     j++;
   } // While end;
 }

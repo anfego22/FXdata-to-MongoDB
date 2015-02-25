@@ -17,8 +17,9 @@ class FXtoBSON{
   ifstream csvFile;
   string file, formatt;
   int T, cols, h;
-  BSONObjBuilder dc, bArr;
-  BSONObj bab;
+  BSONObjBuilder dc, MIN, HOUR, DAY, MONTH;
+  BSONObj bab; //For debug options
+  struct tm time0;
   vector<BSONObj> docs;
   vector<string> names;
   FXtoBSON(const string &file_, const string &formatt_,
