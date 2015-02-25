@@ -17,7 +17,6 @@ class FXtoBSON{
   ifstream csvFile;
   string file, formatt, db;
   int T, cols, h;
-  BSONObjBuilder MIN, YEAR, HOUR, DAY, MONTH;
   vector<string> names;
   FXtoBSON(const string &file_, const string &formatt_,
 	   const string &pair, DBClientConnection &c);

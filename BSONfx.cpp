@@ -54,7 +54,6 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
   db = "FOREX.";
   db += pair;
   string dropheader, line, cell;
-  BSONObjBuilder quotes;
   int j = 0;
   struct tm tempTM;
   headers();
@@ -63,6 +62,8 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
   csvFile.open(file.c_str());
   getline(csvFile, dropheader);
   while(getline(csvFile, line)){
+    string query;
+    BSONObjBuilder quotes;
     istringstream lineS(line);
     for (int i = 0; i!=cols; i++){
       getline(lineS, cell, ';');
@@ -75,19 +76,18 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
 	quotes.append(names[i], d);
       }
     }
-    MIN.append(to_string(tempTM.tm_min), quotes.asTempObj());
-    HOUR.append(to_string(tempTM.tm_hour), MIN.asTempObj());
-    DAY.append(to_string(tempTM.tm_mday), HOUR.asTempObj());
-    MONTH.append(to_string(tempTM.tm_mon), DAY.asTempObj());
-    //YEAR << "Year" << tempTM.tm_year + 1900;
-    //YEAR.appendArray("MON", MONTH.asTempObj());
+    string min = to_string(tempTM.tm_min);
+    string hour = to_string(tempTM.tm_hour);
+    string day = to_string(tempTM.tm_mday);
+    string mon = to_string(tempTM.tm_mon);
+    string p = ".";
+    query = mon + p + day + p + hour + p + min ;
     try{
       c.update(db, BSON("Year" << tempTM.tm_year + 1900),
-	       BSON("$set" << BSON("MONTH" << MONTH.asTempObj())), true);
-    
+	       BSON("$addToSet" << BSON(query << quotes.obj())), true);
     } catch( const mongo::DBException &e) {
       std::cout << "caught " << e.what() << std::endl;
     }
-    
   } // While end;
 }
+
