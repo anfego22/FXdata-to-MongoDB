@@ -40,7 +40,7 @@ void FXtoBSON::Years(){
 	if(names[i] == "Date")
 	strptime(cell.c_str(), formatt.c_str(), &tmLast);
 	else
-	;
+	  ;
       }
     }
     T = tmLast.tm_year - tmOne.tm_year + 1;
@@ -55,6 +55,7 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
   db += pair;
   string dropheader, line, cell;
   BSONObjBuilder quotes;
+  int j = 0;
   struct tm tempTM;
   headers();
   Years();
@@ -70,20 +71,20 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
       else{
 	istringstream td(cell);
 	double d;
-	td >> cell;
-	quotes.append(names[i], td);
+	td >> d;
+	quotes.append(names[i], d);
       }
     }
-    MIN.append(to_string(tempTM.tm_min), quotes.done());
-    HOUR.append(to_string(tempTM.tm_hour), MIN.done());
-    DAY.append(to_string(tempTM.tm_mday), HOUR.done());
-    MONTH.append(to_string(tempTM.tm_mon), DAY.done());
-    YEAR << "Year" << tempTM.tm_year <<"Price" << MONTH.done();
+    MIN.append(to_string(tempTM.tm_min), quotes.asTempObj());
+    HOUR.append(to_string(tempTM.tm_hour), MIN.asTempObj());
+    DAY.append(to_string(tempTM.tm_mday), HOUR.asTempObj());
+    MONTH.append(to_string(tempTM.tm_mon), DAY.asTempObj());
+    //YEAR << "Year" << tempTM.tm_year + 1900;
+    //YEAR.appendArray("MON", MONTH.asTempObj());
     try{
-      c.update(db,
-	       BSON("Year" << tempTM.tm_year),
-	       BSON("$push" << BSON("Price" << YEAR.obj())), true);
-      
+      c.update(db, BSON("Year" << tempTM.tm_year + 1900),
+	       BSON("$set" << BSON("MONTH" << MONTH.asTempObj())), true);
+    
     } catch( const mongo::DBException &e) {
       std::cout << "caught " << e.what() << std::endl;
     }
