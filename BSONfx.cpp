@@ -3,19 +3,6 @@
 using namespace std;
 using namespace mongo;
 
-void FXtoBSON::rowFile(){
-  if(T == 0){
-    csvFile.seekg(0);
-    csvFile.open(file.c_str());
-    string line;
-    while(getline(csvFile, line)){
-      T++;
-    }
-    T -= 1;
-    csvFile.close();
-  }
-}
-
 void FXtoBSON::headers(){
   if(names.size() == 0){
     csvFile.seekg(0);
@@ -31,61 +18,75 @@ void FXtoBSON::headers(){
   }
 }
 
-FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
-		   DBClientConnection &c):
-  file(file_), T(0), cols(0), formatt(formatt_), h(0){
-  rowFile();
-  headers();
-  csvFile.seekg(0);
-  string dropheader, line, cell;
-  csvFile.open(file.c_str());
-  getline(csvFile, dropheader);
-  int j = 0;
-  while(getline(csvFile, line)){
-    stringstream lineS(line);
-    BSONObjBuilder quotes, YearPair;
-    struct tm tempTM;
-    for (int i = 0; i!=cols; i++){
-      getline(lineS, cell, ';');
-      // This is for convert the string cell to other type
-      istringstream ss(cell);
+void FXtoBSON::Years(){
+  if(T == 0){
+    csvFile.seekg(0);
+    string line, cell;
+    struct tm tmOne, tmLast;
+    getline(csvFile, line);
+    getline(csvFile, line);
+    istringstream lineOne(line);
+    for (int i = 0; i!= cols; i++){
+      getline(lineOne, cell, ';');
       if(names[i] == "Date")
-	strptime(cell.c_str(), formatt.c_str(), &tempTM);
-      else {
-	double q;
-	ss >> q;
-	quotes.append(names[i], q);
+	strptime(cell.c_str(), formatt.c_str(), &tmOne);
+      else
+	;
+    }
+    while(getline(csvFile, line)){
+      istringstream lineLast(line);
+      for (int i = 0; i!= cols; i++){
+	getline(lineLast, cell, ';');
+	if(names[i] == "Date")
+	strptime(cell.c_str(), formatt.c_str(), &tmLast);
+	else
+	;
       }
     }
-    string month = to_string(tempTM.tm_mon);
-    string day = to_string(tempTM.tm_mday);
-    string hour = to_string(tempTM.tm_hour);
-    string min = to_string(tempTM.tm_min);
-    YearPair << "Year" << 1900 + tempTM.tm_year
-	     << "Pair" << "eurusd";
-    if(j!=0){
-      if(tempTM.tm_hour == time0.tm_hour){
-	MIN.append(min, quotes.obj());
-      } else{
-	HOUR.append(to_string(time0.tm_hour), MIN.asTempObj());
-	MIN.decouple();
-	MIN.append(min, quotes.obj());
-      }
-    } else {
-      MIN.append(min, quotes.obj());
-    }
-    if(j == T-1){
-      HOUR.append(hour, MIN.obj());
-      YearPair.append("Price", HOUR.obj());
-      docs.push_back(YearPair.obj());
-    }
-    time0 = tempTM;
-    j++;
-  } // While end;
+    T = tmLast.tm_year - tmOne.tm_year + 1;
+  }
 }
 
-void FXtoBSON::printBSON(){
-  for (int i = 0; i != docs.size(); i++){
-    cout << docs[i].toString() << endl;
-  }
+
+FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
+		   const string &pair, DBClientConnection &c):
+  file(file_), T(0), cols(0), formatt(formatt_), h(0){
+  db = "FOREX.";
+  db += pair;
+  string dropheader, line, cell;
+  BSONObjBuilder quotes;
+  struct tm tempTM;
+  headers();
+  Years();
+  csvFile.seekg(0);
+  csvFile.open(file.c_str());
+  getline(csvFile, dropheader);
+  while(getline(csvFile, line)){
+    istringstream lineS(line);
+    for (int i = 0; i!=cols; i++){
+      getline(lineS, cell, ';');
+      if (names[i] == "Date")
+	strptime(cell.c_str(), formatt.c_str(), &tempTM);
+      else{
+	istringstream td(cell);
+	double d;
+	td >> cell;
+	quotes.append(names[i], td);
+      }
+    }
+    MIN.append(to_string(tempTM.tm_min), quotes.done());
+    HOUR.append(to_string(tempTM.tm_hour), MIN.done());
+    DAY.append(to_string(tempTM.tm_mday), HOUR.done());
+    MONTH.append(to_string(tempTM.tm_mon), DAY.done());
+    YEAR << "Year" << tempTM.tm_year <<"Price" << MONTH.done();
+    try{
+      c.update(db,
+	       BSON("Year" << tempTM.tm_year),
+	       BSON("$push" << BSON("Price" << YEAR.obj())), true);
+      
+    } catch( const mongo::DBException &e) {
+      std::cout << "caught " << e.what() << std::endl;
+    }
+    
+  } // While end;
 }

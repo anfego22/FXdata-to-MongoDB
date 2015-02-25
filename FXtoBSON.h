@@ -15,18 +15,14 @@ using namespace mongo;
 class FXtoBSON{
  public:
   ifstream csvFile;
-  string file, formatt;
+  string file, formatt, db;
   int T, cols, h;
-  BSONObjBuilder dc, MIN, HOUR, DAY, MONTH;
-  BSONObj bab; //For debug options
-  struct tm time0;
-  vector<BSONObj> docs;
+  BSONObjBuilder MIN, HOUR, DAY, MONTH, YEAR;
   vector<string> names;
   FXtoBSON(const string &file_, const string &formatt_,
-	   DBClientConnection &c);
-  void rowFile();
-  void printBSON();
+	   const string &pair, DBClientConnection &c);
   void headers();
+  void Years();
 };
 
 #endif
