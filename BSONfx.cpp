@@ -10,7 +10,7 @@ void FXtoBSON::headers(){
     string cell, firstline;
     getline(csvFile, firstline);
     stringstream lineS(firstline);
-    while(getline(lineS, cell, ';')){
+    while(getline(lineS, cell, sep)){
       names.push_back(cell);
     }
     cols = names.size();
@@ -18,55 +18,24 @@ void FXtoBSON::headers(){
   }
 }
 
-void FXtoBSON::Years(){
-  if(T == 0){
-    csvFile.seekg(0);
-    string line, cell;
-    struct tm tmOne, tmLast;
-    getline(csvFile, line);
-    getline(csvFile, line);
-    istringstream lineOne(line);
-    for (int i = 0; i!= cols; i++){
-      getline(lineOne, cell, ';');
-      if(names[i] == "Date")
-	strptime(cell.c_str(), formatt.c_str(), &tmOne);
-      else
-	;
-    }
-    while(getline(csvFile, line)){
-      istringstream lineLast(line);
-      for (int i = 0; i!= cols; i++){
-	getline(lineLast, cell, ';');
-	if(names[i] == "Date")
-	strptime(cell.c_str(), formatt.c_str(), &tmLast);
-	else
-	  ;
-      }
-    }
-    T = tmLast.tm_year - tmOne.tm_year + 1;
-  }
-}
-
-
 FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
-		   const string &pair, DBClientConnection &c):
-  file(file_), T(0), cols(0), formatt(formatt_), h(0){
+		   const string &pair, DBClientConnection &c, const char &sep_):
+  file(file_), cols(0), formatt(formatt_), h(0), sep(sep_){
   db = "FOREX.";
   db += pair;
   string dropheader, line, cell;
   int j = 0;
   struct tm tempTM;
   headers();
-  Years();
   csvFile.seekg(0);
   csvFile.open(file.c_str());
   getline(csvFile, dropheader);
   while(getline(csvFile, line)){
     string query;
-    BSONObjBuilder quotes;
+    BSONObjBuilder quotes, FIND;
     istringstream lineS(line);
     for (int i = 0; i!=cols; i++){
-      getline(lineS, cell, ';');
+      getline(lineS, cell, sep);
       if (names[i] == "Date")
 	strptime(cell.c_str(), formatt.c_str(), &tempTM);
       else{
@@ -81,9 +50,11 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
     string day = to_string(tempTM.tm_mday);
     string mon = to_string(tempTM.tm_mon);
     string p = ".";
-    query = mon + p + day + p + hour + p + min ;
+    query = min;
+    tempTM.tm_min = 0;
+    FIND.appendTimeT("Date", mktime(&tempTM)); 
     try{
-      c.update(db, BSON("Year" << tempTM.tm_year + 1900),
+      c.update(db, FIND.obj(),
 	       BSON("$addToSet" << BSON(query << quotes.obj())), true);
     } catch( const mongo::DBException &e) {
       std::cout << "caught " << e.what() << std::endl;
