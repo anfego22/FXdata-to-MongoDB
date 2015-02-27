@@ -17,12 +17,14 @@ class FXtoBSON{
   ifstream csvFile;
   string file, formatt, db;
   char sep;
-  int cols, h;
+  struct tm time0;
+  int cols, rows;
   vector<string> names;
   FXtoBSON(const string &file_, const string &formatt_,
 	   const string &pair, DBClientConnection &c,
 	   const char &sep);
   void headers();
+  void rowFile();
 };
 
 #endif
