@@ -52,6 +52,13 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
   csvFile.seekg(0);
   csvFile.open(file.c_str());
   getline(csvFile, dropheader);
+  for (int i = 0; i<60; i++){
+    OpAb.append(i << 0);
+    ClAb.append(i << 0);
+    HiAb.append(i << 0);
+    LoAb.append(i << 0);
+    VlAb.append(i << 0);
+  }
   while(getline(csvFile, line)){
     string query;
     BSONObjBuilder quotes, FIND, Open, High, Low, Close, Vol;
@@ -77,6 +84,13 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
     if(time0.tm_hour == tempTM.tm_hour){
       time0.tm_min = 0;
       FIND.appendTimeT("Date", timegm(&time0)); 
+      c.insert(db, ,
+	       BSON("Open" << OpAb.arr() <<
+		    "High" << HiAb.arr() <<
+		    "Low" << LoAb.arr() <<
+		    "Close" << ClAb.arr() <<
+		    "Vol" << VlAb.arr()));
+      
     } else {
       tempTM.tm_min = 0;
       FIND.appendTimeT("Date", timegm(&tempTM));
