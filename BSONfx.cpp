@@ -52,16 +52,14 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
   csvFile.seekg(0);
   csvFile.open(file.c_str());
   getline(csvFile, dropheader);
-  for (int i = 0; i<60; i++){
-    OpAb.append(i << 0);
-    ClAb.append(i << 0);
-    HiAb.append(i << 0);
-    LoAb.append(i << 0);
-    VlAb.append(i << 0);
+  BSONObjBuilder hour;
+  for(int i = 0; i< 60; i++){
+    hour.append(to_string(i), 0);
   }
+  HOUR = hour.obj();
   while(getline(csvFile, line)){
     string query;
-    BSONObjBuilder quotes, FIND, Open, High, Low, Close, Vol;
+    BSONObjBuilder quotes, FIND;
     istringstream lineS(line);
     for (int i = 0; i!=cols; i++){
       getline(lineS, cell, sep);
@@ -76,34 +74,46 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
     }
     BSONObj QUOTE = quotes.obj();
     string min = to_string(tempTM.tm_min);
-    Open.append(min, QUOTE.getField("Open").numberDouble());
-    High.append(min, QUOTE.getField("High").numberDouble());
-    Low.append(min, QUOTE.getField("Low").numberDouble());
-    Close.append(min, QUOTE.getField("Close").numberDouble());
-    Vol.append(min, QUOTE.getField("Vol").numberDouble());
+    string op, hi, lo, cl, vl;
+    op = string("Open.") + min;
+    hi = string("High.") + min;
+    lo = string("Low.") + min;
+    cl = string("Close.") + min;
+    vl = string("Vol.") + min;
     if(time0.tm_hour == tempTM.tm_hour){
       time0.tm_min = 0;
       FIND.appendTimeT("Date", timegm(&time0)); 
-      c.insert(db, ,
-	       BSON("Open" << OpAb.arr() <<
-		    "High" << HiAb.arr() <<
-		    "Low" << LoAb.arr() <<
-		    "Close" << ClAb.arr() <<
-		    "Vol" << VlAb.arr()));
-      
     } else {
       tempTM.tm_min = 0;
       FIND.appendTimeT("Date", timegm(&tempTM));
     }
     try{
-      c.update(db, FIND.obj(),
-	       BSON("$addToSet" << BSON("Open" << Open.obj() <<
-					"High" << High.obj() <<
-					"Low" << Low.obj() <<
-					"Close" << Close.obj() <<
-					"Vol" << Vol.obj())), true);
+      auto_ptr<DBClientCursor> cursor = c.query(db, FIND.asTempObj());
+      if(cursor->more()){
+	c.update(db, FIND.obj(),
+		 BSON("$set" << 
+		      BSON(op << QUOTE.getField("Open").numberDouble() <<
+			   hi << QUOTE.getField("High").numberDouble() <<
+			   lo << QUOTE.getField("Low").numberDouble() <<
+			   cl << QUOTE.getField("Close").numberDouble() <<
+			   vl << QUOTE.getField("Vol").numberDouble())));
+      } else {
+	c.update(db, FIND.asTempObj(),
+		 BSON("$set" <<BSON("Open" << HOUR <<
+				     "High" << HOUR <<
+				     "Low" << HOUR <<
+				     "Close" <<HOUR <<
+				     "Vol" << HOUR)), true);
+	c.update(db, FIND.obj(),
+		 BSON("$set" <<
+		      BSON(op << QUOTE.getField("Open").numberDouble() <<
+			   hi << QUOTE.getField("High").numberDouble() <<
+			   lo << QUOTE.getField("Low").numberDouble() <<
+			   cl << QUOTE.getField("Close").numberDouble() <<
+			   vl << QUOTE.getField("Vol").numberDouble())));
+      }
     } catch( const mongo::DBException &e) {
-	std::cout << "caught " << e.what() << std::endl;
+      std::cout << "caught " << e.what() << std::endl;
     }
     time0 = tempTM;
   } // While end;

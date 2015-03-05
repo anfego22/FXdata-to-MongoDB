@@ -14,7 +14,7 @@ using namespace mongo;
 
 class FXtoBSON{
  public:
-  BSONArrayBuilder OpAb, ClAb, HiAb, LoAb, VlAb;
+  BSONObj HOUR;
   ifstream csvFile;
   string file, formatt, db;
   char sep;
