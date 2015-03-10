@@ -29,7 +29,7 @@ class FXtoBSON{
   BSONObj buildQuoteAt(const int & min, const BSONObj & QUOTE);
   BSONObj emptyHour();
   BSONObj find(struct tm tempTM, const int &a);
-  BSONObj dayDoc(const struct tm &);
+  BSONObj dayDoc();
 };
 
 #endif

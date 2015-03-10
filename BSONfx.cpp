@@ -82,14 +82,11 @@ BSONObj FXtoBSON::emptyHour(){
   return empty;
 }
 
-BSONObj FXtoBSON::dayDoc(const struct tm &tempTM){
+BSONObj FXtoBSON::dayDoc(){
   BSONObjBuilder dayId;
-  struct tm tm2;
-  tm2.tm_hour = 0;
   for(int i = 0; i < 24; i++){
     dayId.append(to_string(i), 0);
   }
-  dayId.appendTimeT("Date", timegm(&tm2));
   BSONObj emptyDay = dayId.obj();
   return emptyDay;
 }
@@ -145,23 +142,24 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
       c.update(dbH , FINDhour, BSON("$set" << document));
     } else {
       c.update(dbH, FINDhour,
-	       BSON("set" << empty), true);
+	       BSON("$set" << empty), true);
       c.update(dbH, FINDhour, BSON("$set" << document));
     }
     if(time0.tm_hour != tempTM.tm_hour){
-      BSONObj FINDday = FIND(tempTM, 2);
+      BSONObj FINDday = find(tempTM, 2);
       auto_ptr<DBClientCursor> curD = c.query(dbD, FINDday);
       auto_ptr<DBClientCursor> curH = c.query(dbH, find(time0, 1));
       if(curD->more()){
-	c.update(dbD, FINDday,
-		 BSON("$set" << to_string(time0.tm_hour) <<
-		      curH->next().getField("_id").OID()));
+	if(curH->more())
+	  c.update(dbD, FINDday,
+		   BSON("$set" << BSON(to_string(time0.tm_hour) <<
+				       curH->next().getField("_id"))));
       } else {
 	c.update(dbD, FINDday,
-		 BSON("$set" << dayDoc(time0)), true);
+		 BSON("$set" << dayDoc()), true);
 	c.update(dbD, FINDday,
-		 BSON("$set" << to_string(time0.tm_hour) <<
-		      curH->next().getField("_id").OID()));
+		 BSON("$set" << BSON(to_string(time0.tm_hour) <<
+				     curH->next().getField("_id"))));
       }
     }
     time0 = tempTM;
