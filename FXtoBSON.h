@@ -14,7 +14,6 @@ using namespace mongo;
 
 class FXtoBSON{
  public:
-  BSONObj HOUR;
   ifstream csvFile;
   string file, formatt, db;
   char sep;
@@ -25,7 +24,11 @@ class FXtoBSON{
 	   const string &pair, DBClientConnection &c,
 	   const char &sep);
   void headers();
-  void rowFile();
+  void getTime0();
+  void headerQuote(const string &line, BSONObjBuilder &q,
+		   struct tm & temp);
+  BSONObj buildQuoteAt(const int & min, const BSONObj & QUOTE);
+  BSONObj emptyHour();
 };
 
 #endif
