@@ -15,20 +15,21 @@ using namespace mongo;
 class FXtoBSON{
  public:
   ifstream csvFile;
-  string file, formatt, db;
+  string file, formatt, db, dbH, dbD, dbM;
   char sep;
   struct tm time0;
   int cols, rows;
   vector<string> names;
   FXtoBSON(const string &file_, const string &formatt_,
-	   const string &pair, DBClientConnection &c,
+	   const string &pair, const string &source,
 	   const char &sep);
   void headers();
   void getTime0();
-  void headerQuote(const string &line, BSONObjBuilder &q,
-		   struct tm & temp);
+  BSONObj headerQuote(const string &line, struct tm & temp);
   BSONObj buildQuoteAt(const int & min, const BSONObj & QUOTE);
   BSONObj emptyHour();
+  BSONObj find(struct tm tempTM, const int &a);
+  BSONObj dayDoc(const struct tm &);
 };
 
 #endif

@@ -34,8 +34,8 @@ void FXtoBSON::getTime0(){
   csvFile.seekg(0);
 }
 
-void FXtoBSON::headerQuote(const string &line, BSONObjBuilder &quotes,
-			   struct tm &tempTM){
+BSONObj FXtoBSON::headerQuote(const string &line, struct tm &tempTM){
+  BSONObjBuilder quotes;
   string cell;
   istringstream lineS(line);
   for (int i = 0; i!=cols; i++){
@@ -49,6 +49,7 @@ void FXtoBSON::headerQuote(const string &line, BSONObjBuilder &quotes,
       quotes.append(names[i], d);
     }
   }
+  return quotes.obj();
 }
 
 BSONObj FXtoBSON::buildQuoteAt(const int & min_, const BSONObj & QUOTE){
@@ -76,48 +77,92 @@ BSONObj FXtoBSON::emptyHour(){
   BSONObj empty, HOUR;
   HOUR = hour.obj();
   empty = BSON("Open" << HOUR << "High" << HOUR <<
-		   "Low" << HOUR << "Close" <<HOUR <<
-		   "Vol" << HOUR);
+	       "Low" << HOUR << "Close" <<HOUR <<
+	       "Vol" << HOUR);
   return empty;
 }
 
+BSONObj FXtoBSON::dayDoc(const struct tm &tempTM){
+  BSONObjBuilder dayId;
+  struct tm tm2;
+  tm2.tm_hour = 0;
+  for(int i = 0; i < 24; i++){
+    dayId.append(to_string(i), 0);
+  }
+  dayId.appendTimeT("Date", timegm(&tm2));
+  BSONObj emptyDay = dayId.obj();
+  return emptyDay;
+}
+
+BSONObj FXtoBSON::find(struct tm tempTM, const int &a){
+  BSONObjBuilder FIND;
+  switch(a){
+  case 1:
+    tempTM.tm_min = 0;
+    FIND.appendTimeT("Date", timegm(&tempTM));
+    break;
+  case 2:
+    tempTM.tm_min = 0;
+    tempTM.tm_hour = 0;
+    FIND.appendTimeT("Date", timegm(&tempTM));
+    break;
+  case 3:
+    tempTM.tm_min = 0;
+    tempTM.tm_hour = 0;
+    tempTM.tm_mday = 0;
+    FIND.appendTimeT("Date", timegm(&tempTM));
+    break;
+  }
+  return FIND.obj();
+}
+
+
 FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
-		   const string &pair, DBClientConnection &c, const char &sep_):
+		   const string &pair, const string & source,
+		   const char &sep_):
   file(file_), cols(0), rows(0), formatt(formatt_), sep(sep_){
-  db = "FOREX.";
-  db += pair;
+  db = string("FOREX.") + source + string(".") + pair;
+  dbH = db + string(".") + string("hour");
+  dbD = db + string(".") + string("Day");
+  dbM = db + string(".") + string("Month");
+  mongo::client::initialize();
+  DBClientConnection c;
+  c.connect("localhost");
   string dropheader, line;
-  int j = 1;
   struct tm tempTM;
-  BSONObj empty;
   headers();
   getTime0();
   csvFile.open(file.c_str());
   getline(csvFile, dropheader);
-  empty = emptyHour();
+  BSONObj empty = emptyHour();
+  BSONObj projId = BSON("_id" << 1);
   while(getline(csvFile, line)){
-    BSONObjBuilder quotes, FIND;
-    headerQuote(line, quotes, tempTM);
-    BSONObj QUOTE = quotes.obj();
+    BSONObj QUOTE = headerQuote(line, tempTM);
     BSONObj document = buildQuoteAt(tempTM.tm_min, QUOTE);
-    if(time0.tm_hour == tempTM.tm_hour){
-      time0.tm_min = 0;
-      FIND.appendTimeT("Date", timegm(&time0)); 
+    BSONObj FINDhour = find(tempTM, 1);
+    auto_ptr<DBClientCursor> cursor = c.query(dbH, FINDhour);
+    if(cursor->more()){
+      c.update(dbH , FINDhour, BSON("$set" << document));
     } else {
-      tempTM.tm_min = 0;
-      FIND.appendTimeT("Date", timegm(&tempTM));
+      c.update(dbH, FINDhour,
+	       BSON("set" << empty), true);
+      c.update(dbH, FINDhour, BSON("$set" << document));
     }
-    try{
-      auto_ptr<DBClientCursor> cursor = c.query(db, FIND.asTempObj());
-      if(cursor->more()){
-	c.update(db, FIND.obj(), BSON("$set" << document));
+    if(time0.tm_hour != tempTM.tm_hour){
+      BSONObj FINDday = FIND(tempTM, 2);
+      auto_ptr<DBClientCursor> curD = c.query(dbD, FINDday);
+      auto_ptr<DBClientCursor> curH = c.query(dbH, find(time0, 1));
+      if(curD->more()){
+	c.update(dbD, FINDday,
+		 BSON("$set" << to_string(time0.tm_hour) <<
+		      curH->next().getField("_id").OID()));
       } else {
-	c.update(db, FIND.asTempObj(), 
-		 BSON("$set" << empty), true);
-	c.update(db, FIND.obj(), BSON("$set" << document));
+	c.update(dbD, FINDday,
+		 BSON("$set" << dayDoc(time0)), true);
+	c.update(dbD, FINDday,
+		 BSON("$set" << to_string(time0.tm_hour) <<
+		      curH->next().getField("_id").OID()));
       }
-    } catch( const mongo::DBException &e) {
-      std::cout << "caught " << e.what() << std::endl;
     }
     time0 = tempTM;
   } // While end;
