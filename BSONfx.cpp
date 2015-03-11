@@ -31,9 +31,10 @@ void FXtoBSON::getTime0(){
       strptime(cell.c_str(), formatt.c_str(), &time0);
     csvFile.close();
   }
+  time0.tm_hour = -1;
   csvFile.seekg(0);
 }
-
+// read the line and organize the values
 BSONObj FXtoBSON::headerQuote(const string &line, struct tm &tempTM){
   BSONObjBuilder quotes;
   string cell;
@@ -52,6 +53,7 @@ BSONObj FXtoBSON::headerQuote(const string &line, struct tm &tempTM){
   return quotes.obj();
 }
 
+// Construct the BSON with the field and value with respective minute of the hour
 BSONObj FXtoBSON::buildQuoteAt(const int & min_, const BSONObj & QUOTE){
   string op, hi, lo, cl, vl, min;
   min = to_string(min_);
@@ -68,7 +70,7 @@ BSONObj FXtoBSON::buildQuoteAt(const int & min_, const BSONObj & QUOTE){
 	     vl << QUOTE.getField("Vol").numberDouble());
   return doc;
 }
-
+//Creates a document for an hour
 BSONObj FXtoBSON::emptyHour(){
   BSONObjBuilder hour;
   for(int i = 0; i< 60; i++){
@@ -81,7 +83,7 @@ BSONObj FXtoBSON::emptyHour(){
 	       "Vol" << HOUR);
   return empty;
 }
-
+// create the document that will hold the ID of 24 hours documents
 BSONObj FXtoBSON::dayDoc(){
   BSONObjBuilder dayId;
   for(int i = 0; i < 24; i++){
@@ -91,6 +93,7 @@ BSONObj FXtoBSON::dayDoc(){
   return emptyDay;
 }
 
+// Create the date of hour/day/month document
 BSONObj FXtoBSON::find(struct tm tempTM, const int &a){
   BSONObjBuilder FIND;
   switch(a){
@@ -113,6 +116,58 @@ BSONObj FXtoBSON::find(struct tm tempTM, const int &a){
   return FIND.obj();
 }
 
+// Look if hour has changed to add that id to the document
+void FXtoBSON::updateDay(const struct tm &tempTM,
+			 DBClientConnection &c){
+  if(time0.tm_hour != tempTM.tm_hour){
+    BSONObj FINDday = find(tempTM, 2);
+    auto_ptr<DBClientCursor> curD = c.query(dbD, FINDday);
+    auto_ptr<DBClientCursor> curH = c.query(dbH, find(tempTM, 1));
+    if(curD->more()){
+      if(curH->more())
+	c.update(dbD, FINDday,
+		 BSON("$set" << BSON(to_string(tempTM.tm_hour) <<
+				     curH->next().getField("_id"))));
+    } else {
+      c.update(dbD, FINDday,
+	       BSON("$set" << dayDoc()), true);
+      c.update(dbD, FINDday,
+	       BSON("$set" << BSON(to_string(tempTM.tm_hour) <<
+				   curH->next().getField("_id"))));
+    }
+  }
+}
+
+// add a document containing a quote
+void FXtoBSON::toEigen(const int &j, const BSONObj &QUOTE){
+  Hour(j,0) = QUOTE.getField("Open").numberDouble();
+  Hour(j,1) = QUOTE.getField("High").numberDouble();
+  Hour(j,2) = QUOTE.getField("Low").numberDouble();
+  Hour(j,3) = QUOTE.getField("Close").numberDouble();
+  Hour(j,4) = QUOTE.getField("Vol").numberDouble();
+}
+
+BSONObj FXtoBSON::aggregate(const int &a){
+  VectorXd reduc;
+  BSONObjBuilder agg;
+  switch(a){
+  case 1:
+    reduc = Hour.colwise().maxCoeff();
+    break;
+  case 2:
+    reduc = Day.colwise().maxCoeff();
+    break;
+  case 3:
+    reduc = Hour.colwise().maxCoeff();
+    break;
+  }
+  agg.append("Open" << reduc(0) <<
+	     "High" << reduc(1) <<
+	     "Low" << reduc(2) <<
+	     "Close" << reduc(3) <<
+	     "Vol" << reduc(4));
+  return agg.obj();
+}
 
 FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
 		   const string &pair, const string & source,
@@ -122,6 +177,8 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
   dbH = db + string(".") + string("hour");
   dbD = db + string(".") + string("Day");
   dbM = db + string(".") + string("Month");
+  Hour.setZero(60, 5);
+  Day.setZero(24, 5);
   mongo::client::initialize();
   DBClientConnection c;
   c.connect("localhost");
@@ -131,6 +188,7 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
   getTime0();
   csvFile.open(file.c_str());
   getline(csvFile, dropheader);
+  int j = 0;
   BSONObj empty = emptyHour();
   BSONObj projId = BSON("_id" << 1);
   while(getline(csvFile, line)){
@@ -145,23 +203,7 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
 	       BSON("$set" << empty), true);
       c.update(dbH, FINDhour, BSON("$set" << document));
     }
-    if(time0.tm_hour != tempTM.tm_hour){
-      BSONObj FINDday = find(tempTM, 2);
-      auto_ptr<DBClientCursor> curD = c.query(dbD, FINDday);
-      auto_ptr<DBClientCursor> curH = c.query(dbH, find(time0, 1));
-      if(curD->more()){
-	if(curH->more())
-	  c.update(dbD, FINDday,
-		   BSON("$set" << BSON(to_string(time0.tm_hour) <<
-				       curH->next().getField("_id"))));
-      } else {
-	c.update(dbD, FINDday,
-		 BSON("$set" << dayDoc()), true);
-	c.update(dbD, FINDday,
-		 BSON("$set" << BSON(to_string(time0.tm_hour) <<
-				     curH->next().getField("_id"))));
-      }
-    }
+    updateDay(tempTM, c);
     time0 = tempTM;
   } // While end;
 }

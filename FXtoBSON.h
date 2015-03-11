@@ -8,12 +8,17 @@
 #include <string>
 #include <vector>
 #include <time.h>
+#include "Eigen/Dense"
 
 using namespace std;
 using namespace mongo;
+using namespace eigen;
 
 class FXtoBSON{
  public:
+  MatrixXd Hour;
+  MatrixXd Day;
+  MatrixXd Month;
   ifstream csvFile;
   string file, formatt, db, dbH, dbD, dbM;
   char sep;
@@ -25,6 +30,9 @@ class FXtoBSON{
 	   const char &sep);
   void headers();
   void getTime0();
+  void updateDay(const struct tm &, DBClientConnection &);
+  void toEigen(const int &, const BSONObj &);
+  void aggregate(const int &);
   BSONObj headerQuote(const string &line, struct tm & temp);
   BSONObj buildQuoteAt(const int & min, const BSONObj & QUOTE);
   BSONObj emptyHour();
