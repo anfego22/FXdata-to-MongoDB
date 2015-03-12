@@ -147,31 +147,64 @@ void FXtoBSON::hourToEigen(const int &j, const BSONObj &QUOTE){
   Hour(j,4) = QUOTE.getField("Vol").numberDouble();
 }
 
+VectorXd FXtoBSON::reduce(const char &a){
+  VectorXd reduc(5);
+  int j = 0; int i = 59;
+  switch(a){
+  case 'h':
+    while(!Hour(j,0))
+      j++;
+    reduc(0) = Hour(j,0);
+    reduc(1) = Hour.col(1).maxCoeff();
+    for(int k = 0; k < 60; k++){
+      if(Hour(k, 2) == 0)
+	Hour(k, 2) = 100;
+    }
+    reduc(2) = Hour.col(2).minCoeff();
+    while(!Hour(i, 3))
+      i--;
+    reduc(3) = Hour(i, 3);
+    reduc(4) = Hour.col(4).sum();
+    break;
+  case 'd':
+    while(!Day(j,0))
+      j++;
+    reduc(0) = Day(j,0);
+    reduc(1) = Day.col(1).maxCoeff();
+    reduc(2) = Day.col(2).minCoeff();
+    while(!Day(i, 3))
+      i--;
+    reduc(3) = Day(i, 3);
+    reduc(4) = Day.col(4).sum();
+    break;
+  case 'm':
+    while(!Month(j,0))
+      j++;
+    reduc(0) = Month(j,0);
+    reduc(1) = Month.col(1).maxCoeff();
+    reduc(2) = Month.col(2).minCoeff();
+    while(!Month(i, 3))
+      i--;
+    reduc(3) = Month(i, 3);
+    reduc(4) = Month.col(4).sum();
+    break;
+  }
+  return reduc;
+}
+
 BSONObj FXtoBSON::aggregate(const char &a, const struct tm &tempTM){
   VectorXd reduc(5);
   switch(a){
   case 'h':
-    reduc(0) = Hour(0, 0);
-    reduc(1) = Hour.col(1).maxCoeff();
-    reduc(2) = Hour.col(2).minCoeff();
-    reduc(3) = Hour(59, 3);
-    reduc(4) = Hour.col(4).sum();
+    reduc = reduce('h');
     Day.row(tempTM.tm_hour) = reduc;
     break;
   case 'd':
-    reduc(0) = Day(0, 0);
-    reduc(1) = Day.col(1).maxCoeff();
-    reduc(2) = Day.col(2).minCoeff();
-    reduc(3) = Day(59, 3);
-    reduc(4) = Day.col(4).sum();
+    reduc = reduce('d');
     Month.row(tempTM.tm_mday) = reduc;
     break;
   case 'm':
-    reduc(0) = Month(0, 0);
-    reduc(1) = Month.col(1).maxCoeff();
-    reduc(2) = Month.col(2).minCoeff();
-    reduc(3) = Month(59, 3);
-    reduc(4) = Month.col(4).sum();
+    reduc = reduce('m');
     //Year.row(tempTM.tm_mon) = reduc;
     break;
   }
@@ -217,12 +250,14 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
       c.update(dbH, FINDhour, BSON("$set" << document));
     }
     updateDay(tempTM, c);
-    hourToEigen(tempTM.tm_min, QUOTE); 
+    if(tempTM.tm_hour == time0.tm_hour | time0.tm_hour == -1)
+      hourToEigen(tempTM.tm_min, QUOTE); 
     if(tempTM.tm_hour != time0.tm_hour && time0.tm_hour != -1){
-      c.update(dbH, FINDhour,
+      c.update(dbH, find(time0, 'h'),
 	       BSON("$addToSet" << BSON("quote" <<
 					aggregate('h', time0))));
       Hour.setZero(60, 5);
+      hourToEigen(tempTM.tm_min, QUOTE);
     }
     if(tempTM.tm_mday != time0.tm_mday){
       c.update(dbD, find(tempTM, 'd'),

@@ -32,6 +32,7 @@ class FXtoBSON{
   void getTime0();
   void updateDay(const struct tm &, DBClientConnection &);
   void hourToEigen(const int &, const BSONObj &);
+  VectorXd reduce(const char &a);
   BSONObj aggregate(const char &, const struct tm &);
   BSONObj headerQuote(const string &line, struct tm & temp);
   BSONObj buildQuoteAt(const int & min, const BSONObj & QUOTE);
