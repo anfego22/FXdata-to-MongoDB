@@ -12,7 +12,7 @@
 
 using namespace std;
 using namespace mongo;
-using namespace eigen;
+using namespace Eigen;
 
 class FXtoBSON{
  public:
@@ -31,12 +31,12 @@ class FXtoBSON{
   void headers();
   void getTime0();
   void updateDay(const struct tm &, DBClientConnection &);
-  void toEigen(const int &, const BSONObj &);
-  void aggregate(const int &);
+  void hourToEigen(const int &, const BSONObj &);
+  BSONObj aggregate(const char &, const struct tm &);
   BSONObj headerQuote(const string &line, struct tm & temp);
   BSONObj buildQuoteAt(const int & min, const BSONObj & QUOTE);
   BSONObj emptyHour();
-  BSONObj find(struct tm tempTM, const int &a);
+  BSONObj find(struct tm tempTM, const char &a);
   BSONObj dayDoc();
 };
 

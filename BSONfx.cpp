@@ -94,19 +94,19 @@ BSONObj FXtoBSON::dayDoc(){
 }
 
 // Create the date of hour/day/month document
-BSONObj FXtoBSON::find(struct tm tempTM, const int &a){
+BSONObj FXtoBSON::find(struct tm tempTM, const char &a){
   BSONObjBuilder FIND;
   switch(a){
-  case 1:
+  case 'h':
     tempTM.tm_min = 0;
     FIND.appendTimeT("Date", timegm(&tempTM));
     break;
-  case 2:
+  case 'd':
     tempTM.tm_min = 0;
     tempTM.tm_hour = 0;
     FIND.appendTimeT("Date", timegm(&tempTM));
     break;
-  case 3:
+  case 'm':
     tempTM.tm_min = 0;
     tempTM.tm_hour = 0;
     tempTM.tm_mday = 0;
@@ -139,7 +139,7 @@ void FXtoBSON::updateDay(const struct tm &tempTM,
 }
 
 // add a document containing a quote
-void FXtoBSON::toEigen(const int &j, const BSONObj &QUOTE){
+void FXtoBSON::hourToEigen(const int &j, const BSONObj &QUOTE){
   Hour(j,0) = QUOTE.getField("Open").numberDouble();
   Hour(j,1) = QUOTE.getField("High").numberDouble();
   Hour(j,2) = QUOTE.getField("Low").numberDouble();
@@ -147,26 +147,39 @@ void FXtoBSON::toEigen(const int &j, const BSONObj &QUOTE){
   Hour(j,4) = QUOTE.getField("Vol").numberDouble();
 }
 
-BSONObj FXtoBSON::aggregate(const int &a){
-  VectorXd reduc;
-  BSONObjBuilder agg;
+BSONObj FXtoBSON::aggregate(const char &a, const struct tm &tempTM){
+  VectorXd reduc(5);
   switch(a){
-  case 1:
-    reduc = Hour.colwise().maxCoeff();
+  case 'h':
+    reduc(0) = Hour(0, 0);
+    reduc(1) = Hour.col(1).maxCoeff();
+    reduc(2) = Hour.col(2).minCoeff();
+    reduc(3) = Hour(59, 3);
+    reduc(4) = Hour.col(4).sum();
+    Day.row(tempTM.tm_hour) = reduc;
     break;
-  case 2:
-    reduc = Day.colwise().maxCoeff();
+  case 'd':
+    reduc(0) = Day(0, 0);
+    reduc(1) = Day.col(1).maxCoeff();
+    reduc(2) = Day.col(2).minCoeff();
+    reduc(3) = Day(59, 3);
+    reduc(4) = Day.col(4).sum();
+    Month.row(tempTM.tm_mday) = reduc;
     break;
-  case 3:
-    reduc = Hour.colwise().maxCoeff();
+  case 'm':
+    reduc(0) = Month(0, 0);
+    reduc(1) = Month.col(1).maxCoeff();
+    reduc(2) = Month.col(2).minCoeff();
+    reduc(3) = Month(59, 3);
+    reduc(4) = Month.col(4).sum();
+    //Year.row(tempTM.tm_mon) = reduc;
     break;
   }
-  agg.append("Open" << reduc(0) <<
+  return BSON("Open" << reduc(0) <<
 	     "High" << reduc(1) <<
 	     "Low" << reduc(2) <<
 	     "Close" << reduc(3) <<
 	     "Vol" << reduc(4));
-  return agg.obj();
 }
 
 FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
@@ -174,7 +187,7 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
 		   const char &sep_):
   file(file_), cols(0), rows(0), formatt(formatt_), sep(sep_){
   db = string("FOREX.") + source + string(".") + pair;
-  dbH = db + string(".") + string("hour");
+  dbH = db + string(".") + string("Hour");
   dbD = db + string(".") + string("Day");
   dbM = db + string(".") + string("Month");
   Hour.setZero(60, 5);
@@ -194,7 +207,7 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
   while(getline(csvFile, line)){
     BSONObj QUOTE = headerQuote(line, tempTM);
     BSONObj document = buildQuoteAt(tempTM.tm_min, QUOTE);
-    BSONObj FINDhour = find(tempTM, 1);
+    BSONObj FINDhour = find(tempTM, 'h');
     auto_ptr<DBClientCursor> cursor = c.query(dbH, FINDhour);
     if(cursor->more()){
       c.update(dbH , FINDhour, BSON("$set" << document));
@@ -204,8 +217,22 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
       c.update(dbH, FINDhour, BSON("$set" << document));
     }
     updateDay(tempTM, c);
+    hourToEigen(tempTM.tm_min, QUOTE); 
+    if(tempTM.tm_hour != time0.tm_hour && time0.tm_hour != -1){
+      c.update(dbH, FINDhour,
+	       BSON("$addToSet" << BSON("quote" <<
+					aggregate('h', time0))));
+      Hour.setZero(60, 5);
+    }
+    if(tempTM.tm_mday != time0.tm_mday){
+      c.update(dbD, find(tempTM, 'd'),
+	       BSON("$addToSet" << BSON("quote" <<
+					aggregate('m', time0)))); 
+      Day.setZero(24, 5);
+    }
     time0 = tempTM;
   } // While end;
+  
 }
 
 
