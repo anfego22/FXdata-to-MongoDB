@@ -34,6 +34,7 @@ void FXtoBSON::getTime0(){
   time0.tm_hour = -1;
   csvFile.seekg(0);
 }
+
 // read the line and organize the values
 BSONObj FXtoBSON::headerQuote(const string &line, struct tm &tempTM){
   BSONObjBuilder quotes;
@@ -70,10 +71,11 @@ BSONObj FXtoBSON::buildQuoteAt(const int & min_, const BSONObj & QUOTE){
 	     vl << QUOTE.getField("Vol").numberDouble());
   return doc;
 }
+
 //Creates a document for an hour
 BSONObj FXtoBSON::emptyHour(){
   BSONObjBuilder hour;
-  for(int i = 0; i< 60; i++){
+  for(int i = 0; i < 60; i++){
     hour.append(to_string(i), 0);
   }
   BSONObj empty, HOUR;
@@ -83,6 +85,7 @@ BSONObj FXtoBSON::emptyHour(){
 	       "Vol" << HOUR);
   return empty;
 }
+
 // create the document that will hold the ID of 24 hours documents
 BSONObj FXtoBSON::dayDoc(){
   BSONObjBuilder dayId;
@@ -120,9 +123,9 @@ BSONObj FXtoBSON::find(struct tm tempTM, const char &a){
 void FXtoBSON::updateDay(const struct tm &tempTM,
 			 DBClientConnection &c){
   if(time0.tm_hour != tempTM.tm_hour){
-    BSONObj FINDday = find(tempTM, 2);
+    BSONObj FINDday = find(tempTM, 'd');
     auto_ptr<DBClientCursor> curD = c.query(dbD, FINDday);
-    auto_ptr<DBClientCursor> curH = c.query(dbH, find(tempTM, 1));
+    auto_ptr<DBClientCursor> curH = c.query(dbH, find(tempTM, 'h'));
     if(curD->more()){
       if(curH->more())
 	c.update(dbD, FINDday,
@@ -234,10 +237,11 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
   getTime0();
   csvFile.open(file.c_str());
   getline(csvFile, dropheader);
-  int j = 0;
   BSONObj empty = emptyHour();
   BSONObj projId = BSON("_id" << 1);
+  
   while(getline(csvFile, line)){
+    if(!line.empty()){
     BSONObj QUOTE = headerQuote(line, tempTM);
     BSONObj document = buildQuoteAt(tempTM.tm_min, QUOTE);
     BSONObj FINDhour = find(tempTM, 'h');
@@ -266,8 +270,10 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
       Day.setZero(24, 5);
     }
     time0 = tempTM;
+    cout << csvFile.tellg() << endl;
+  }
   } // While end;
-  
+  csvFile.close();
 }
 
 
