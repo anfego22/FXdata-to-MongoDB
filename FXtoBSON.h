@@ -18,7 +18,7 @@ class FXtoBSON{
  public:
   MatrixXd Hour, Day, Month, Year;
   ifstream csvFile;
-  string file, formatt, db, dbH, dbD, dbM;
+  string file, formatt, db, dbH, dbD, dbM, dbY;
   char sep;
   struct tm time0;
   int cols, rows;
@@ -34,7 +34,9 @@ class FXtoBSON{
   void addHourToDB(const struct tm &,
 		   const BSONObj & ,
 		   DBClientConnection &);
-  void aggregateToDB(const char &);
+  void aggregateToDB(const char &,
+		     const struct tm &,
+		     DBClientConnection &);
   VectorXd reduce(const char &);
   BSONObj emptyDoc(const char &);
   BSONObj aggregate(const char &, const struct tm &);
