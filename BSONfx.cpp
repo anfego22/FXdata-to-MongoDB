@@ -194,6 +194,20 @@ VectorXd FXtoBSON::reduce(const char &a){
     reduc(4) = Month.col(4).sum();
     }
     break;
+  case 'y':
+    {
+    int i = 11;
+    while(!Year(j,0))
+      j++;
+    reduc(0) = Year(j,0);
+    reduc(1) = Year.col(1).maxCoeff();
+    reduc(2) = Year.col(2).minCoeff();
+    while(!Year(i, 3))
+      i--;
+    reduc(3) = Year(i, 3);
+    reduc(4) = Year.col(4).sum();
+    break;
+  }
   }
   return reduc;
 }
@@ -212,6 +226,9 @@ BSONObj FXtoBSON::aggregate(const char &a, const struct tm &tempTM){
   case 'm':
     reduc = reduce('m');
     Year.row(tempTM.tm_mon) = reduc;
+    break;
+  case 'y':
+    reduc = reduce('y');
     break;
   }
   return BSON("Open" << reduc(0) <<
@@ -318,7 +335,7 @@ void FXtoBSON::aggregateToDB(const char & t,
     Month.setZero();
     break;
   case 'y':
-    c.update(dbM, find(tempTM, 'y'),
+    c.update(dbY, find(tempTM, 'y'),
 	     BSON("$addToSet" << BSON("quote" <<
 				      aggregate('y', time0))), true);
     Year.setZero();
@@ -355,23 +372,32 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
       BSONObj QUOTE = headerQuote(line, tempTM);
       BSONObj document = buildQuoteAt(tempTM.tm_min, QUOTE);
       addMinToDB(tempTM, document, c);
-      if(tempTM.tm_hour == time0.tm_hour | time0.tm_hour == -1)
+      if(tempTM.tm_hour == time0.tm_hour)
 	hourToEigen(tempTM.tm_min, QUOTE); 
-      if(tempTM.tm_hour != time0.tm_hour & time0.tm_hour != -1 | csvFile.peek() == -1){
+      if(tempTM.tm_hour != time0.tm_hour & time0.tm_hour != -1){
 	aggregateToDB('h', tempTM, c);
 	hourToEigen(tempTM.tm_min, QUOTE);
     	updateDoc('d', time0, c);
       }
-      if(tempTM.tm_mday != time0.tm_mday | csvFile.peek() == -1){
+      if(tempTM.tm_mday != time0.tm_mday){
 	aggregateToDB('d', tempTM, c);
 	updateDoc('m', time0, c);
       }
-      if(tempTM.tm_mon != time0.tm_mon | csvFile.peek() == -1){
+      if(tempTM.tm_mon != time0.tm_mon){
 	aggregateToDB('m', tempTM, c);
 	updateDoc('y', time0, c);
       }
-      if(tempTM.tm_year != time0.tm_year | csvFile.peek() == -1){
+      if(tempTM.tm_year != time0.tm_year){
 	aggregateToDB('y', time0, c);
+      }
+      if(csvFile.peek() == -1){
+	aggregateToDB('h', time0, c);
+	aggregateToDB('d', time0, c);
+	aggregateToDB('m', time0, c);
+	aggregateToDB('y', time0, c);
+	updateDoc('d', time0, c);
+	updateDoc('m', time0, c);
+	updateDoc('y', time0, c);
       }
       time0 = tempTM;
     } // if end
