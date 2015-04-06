@@ -22,6 +22,7 @@ class FXtoBSON{
   char sep;
   struct tm time0;
   int cols, rows;
+  BSONObj projId;
   vector<string> names;
   FXtoBSON(const string &, const string &,
 	   const string &, const string &,
@@ -31,7 +32,7 @@ class FXtoBSON{
   void updateDoc(const char &, const struct tm &,
 		 DBClientConnection &);
   void hourToEigen(const int &, const BSONObj &);
-  void addHourToDB(const struct tm &,
+  void addMinToDB(const struct tm &,
 		   const BSONObj & ,
 		   DBClientConnection &);
   void aggregateToDB(const char &,
