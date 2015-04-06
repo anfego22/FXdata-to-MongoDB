@@ -121,13 +121,13 @@ BSONObj FXtoBSON::find(struct tm tempTM, const char &a){
   case 'm':
     tempTM.tm_min = 0;
     tempTM.tm_hour = 0;
-    tempTM.tm_mday = 0;
+    tempTM.tm_mday = 1;
     FIND.appendTimeT("Date", timegm(&tempTM));
     break;
   case 'y':
     tempTM.tm_min = 0;
     tempTM.tm_hour = 0;
-    tempTM.tm_mday = 0;
+    tempTM.tm_mday = 1;
     tempTM.tm_mon = 0;
     FIND.appendTimeT("Date", timegm(&tempTM));
     break;
@@ -262,16 +262,12 @@ void FXtoBSON::updateDoc(const char &t, const struct tm &tempTM,
       auto_ptr<DBClientCursor> curH = c.query(dbH, findHour, 0, 0, &projId);
     if(curH->more()){
       c.update(dbD, findDay,
-	       BSON("$set" << BSON(to_string(tempTM.tm_hour) <<
-				   curH->next().getField("_id"))));
-    } else {
-      c.update(dbD, findDay,
 	       BSON("$set" << emptyDoc(t)), true);
       c.update(dbD, findDay,
 	       BSON("$set" << BSON(to_string(tempTM.tm_hour) <<
 				   curH->next().getField("_id"))));
+    } 
     }
-  }
     break;
   case 'm':
     {
@@ -279,13 +275,9 @@ void FXtoBSON::updateDoc(const char &t, const struct tm &tempTM,
       BSONObj findMonth = find(tempTM, 'm');
     auto_ptr<DBClientCursor> curD = c.query(dbD, findDay, 0, 0, &projId);
     if(curD->more()){
-      c.update(dbM, findMonth,
-	       BSON("$set" << BSON(to_string(tempTM.tm_mday) <<
-				   curD->next().getField("_id"))));
-    } else {
-      c.update(dbM, findMonth,
+       c.update(dbM, findMonth,
 	       BSON("$set" << emptyDoc(t)), true);
-      c.update(dbD, findMonth,
+       c.update(dbM, findMonth,
 	       BSON("$set" << BSON(to_string(tempTM.tm_mday) <<
 				   curD->next().getField("_id"))));
     }
@@ -297,10 +289,6 @@ void FXtoBSON::updateDoc(const char &t, const struct tm &tempTM,
     BSONObj findYear = find(tempTM, 'y');
     auto_ptr<DBClientCursor> curM = c.query(dbM, findMonth,0,0,&projId);
     if(curM->more()){
-      c.update(dbY, findYear,
-	       BSON("$set" << BSON(to_string(tempTM.tm_mday) <<
-				   curM->next().getField("_id"))));
-    } else {
       c.update(dbY, findYear,
 	       BSON("$set" << emptyDoc(t)), true);
       c.update(dbY, findYear,
