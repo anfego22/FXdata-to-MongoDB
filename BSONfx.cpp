@@ -90,19 +90,18 @@ BSONObj FXtoBSON::emptyDoc(const char &t){
     for(int i = 0; i < 24; i++){
       emptyBB.append(to_string(i), 0);
     }
-    break;
+    return emptyBB.obj();
   case 'm':
     for(int i = 1; i <= 31; i++){
       emptyBB.append(to_string(i), 0);
     }
-    break;
+    return emptyBB.obj();
   case 'y':
     for(int i = 0; i < 12; i++){
       emptyBB.append(to_string(i), 0);
     }
-    break;
+    return emptyBB.obj();
   }
-  return emptyBB.obj();
 }
 
 // Create the date of hour/day/month document
@@ -267,38 +266,38 @@ void FXtoBSON::updateDoc(const char &t, DBClientConnection &c){
   switch(t){
   case 'd':
     {
-      BSONObj findHour = find(time1, 'h');
-      BSONObj findDay = find(time1, 'd');
+      BSONObj findHour = find(time0, 'h');
+      BSONObj findDay = find(time0, 'd');
       auto_ptr<DBClientCursor> curH = c.query(dbH, findHour, 0, 0, &projId);
       if(curH->more()){
 	c.update(dbD, findDay,
 		 BSON("$setOnInsert" << emptyDoc('d')), true);
 	c.update(dbD, findDay,
 		 BSON("$set" << 
-		      BSON(to_string(time1.tm_hour) 
+		      BSON(to_string(time0.tm_hour) 
 			   << curH->next().getField("_id"))));
       } 
     }
     break;
   case 'm':
     {
-      BSONObj findDay = find(time1, 'd');
-      BSONObj findMonth = find(time1, 'm');
+      BSONObj findDay = find(time0, 'd');
+      BSONObj findMonth = find(time0, 'm');
       auto_ptr<DBClientCursor> curD = c.query(dbD, findDay, 0, 0, &projId);
       if(curD->more()){
 	c.update(dbM, findMonth,
 		 BSON("$setOnInsert" << emptyDoc('m')), true);
 	c.update(dbM, findMonth,
 		 BSON("$set" <<
-		      BSON(to_string(time1.tm_mday)
+		      BSON(to_string(time0.tm_mday)
 			   << curD->next().getField("_id"))));
       }
     }
     break;
   case 'y':
     {
-      BSONObj findMonth = find(time1, 'm');
-      BSONObj findYear = find(time1, 'y');
+      BSONObj findMonth = find(time0, 'm');
+      BSONObj findYear = find(time0, 'y');
       auto_ptr<DBClientCursor> curM = c.query(dbM, findMonth,
 					      0, 0, &projId);
       if(curM->more()){
@@ -306,7 +305,7 @@ void FXtoBSON::updateDoc(const char &t, DBClientConnection &c){
 		 BSON("$setOnInsert" << emptyDoc('y')), true);
 	c.update(dbY, findYear,
 		 BSON("$set" << 
-		      BSON(to_string(time1.tm_mon) <<
+		      BSON(to_string(time0.tm_mon) <<
 			   curM->next().getField("_id"))));
       }
     }
