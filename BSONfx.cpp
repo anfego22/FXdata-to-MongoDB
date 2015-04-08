@@ -212,20 +212,20 @@ VectorXd FXtoBSON::reduce(const char &a){
   return reduc;
 }
 
-BSONObj FXtoBSON::aggregate(const char &a, const struct tm &tempTM){
+BSONObj FXtoBSON::aggregate(const char &a){
   VectorXd reduc(5);
   switch(a){
   case 'h':
     reduc = reduce('h');
-    Day.row(tempTM.tm_hour) = reduc;
+    Day.row(time1.tm_hour) = reduc;
     break;
   case 'd':
     reduc = reduce('d');
-    Month.row(tempTM.tm_mday) = reduc;
+    Month.row(time1.tm_mday) = reduc;
     break;
   case 'm':
     reduc = reduce('m');
-    Year.row(tempTM.tm_mon) = reduc;
+    Year.row(time1.tm_mon) = reduc;
     break;
   case 'y':
     reduc = reduce('y');
@@ -238,10 +238,9 @@ BSONObj FXtoBSON::aggregate(const char &a, const struct tm &tempTM){
 	      "Vol" << reduc(4));
 }
 
-void FXtoBSON::addMinToDB(const struct tm &tempTM,
-			   const BSONObj & document,
-			   DBClientConnection & c){
-  BSONObj FINDhour = find(tempTM, 'h');
+void FXtoBSON::addMinToDB(const BSONObj & document,
+			  DBClientConnection & c){
+  BSONObj FINDhour = find(time1, 'h');
   auto_ptr<DBClientCursor> cursor = c.query(dbH, FINDhour);
   if(cursor->more()){
     c.update(dbH , FINDhour, BSON("$set" << document));
@@ -252,48 +251,51 @@ void FXtoBSON::addMinToDB(const struct tm &tempTM,
   }
 }
 
-void FXtoBSON::updateDoc(const char &t, const struct tm &tempTM,
-	       DBClientConnection &c){
+void FXtoBSON::updateDoc(const char &t, DBClientConnection &c){
   switch(t){
   case 'd':
     {
-      BSONObj findHour = find(tempTM, 'h');
-      BSONObj findDay = find(tempTM, 'd');
+      BSONObj findHour = find(time1, 'h');
+      BSONObj findDay = find(time1, 'd');
       auto_ptr<DBClientCursor> curH = c.query(dbH, findHour, 0, 0, &projId);
     if(curH->more()){
       c.update(dbD, findDay,
-	       BSON("$set" << emptyDoc(t)), true);
+	       BSON("$setOnInsert" << emptyDoc('d')), true);
       c.update(dbD, findDay,
-	       BSON("$set" << BSON(to_string(tempTM.tm_hour) <<
-				   curH->next().getField("_id"))));
+	       BSON("$set" << 
+		    BSON(to_string(time1.tm_hour) 
+			 << curH->next().getField("_id"))));
     } 
     }
     break;
   case 'm':
     {
-      BSONObj findDay = find(tempTM, 'd');
-      BSONObj findMonth = find(tempTM, 'm');
+      BSONObj findDay = find(time1, 'd');
+      BSONObj findMonth = find(time1, 'm');
     auto_ptr<DBClientCursor> curD = c.query(dbD, findDay, 0, 0, &projId);
     if(curD->more()){
        c.update(dbM, findMonth,
-	       BSON("$set" << emptyDoc(t)), true);
+	       BSON("$setOnInsert" << emptyDoc(t)), true);
        c.update(dbM, findMonth,
-	       BSON("$set" << BSON(to_string(tempTM.tm_mday) <<
-				   curD->next().getField("_id"))));
+	       BSON("$set" <<
+		    BSON(to_string(time1.tm_mday) <<
+			 curD->next().getField("_id"))));
     }
     }
     break;
   case 'y':
     {
-    BSONObj findMonth = find(tempTM, 'm');
-    BSONObj findYear = find(tempTM, 'y');
-    auto_ptr<DBClientCursor> curM = c.query(dbM, findMonth,0,0,&projId);
+    BSONObj findMonth = find(time1, 'm');
+    BSONObj findYear = find(time1, 'y');
+    auto_ptr<DBClientCursor> curM = c.query(dbM, findMonth,
+					    0, 0, &projId);
     if(curM->more()){
       c.update(dbY, findYear,
-	       BSON("$set" << emptyDoc(t)), true);
+	       BSON("$setOnInsert" << emptyDoc(t)), true);
       c.update(dbY, findYear,
-	       BSON("$set" << BSON(to_string(tempTM.tm_mon) <<
-				   curM->next().getField("_id"))));
+	       BSON("$set" << 
+		    BSON(to_string(time1.tm_mon) <<
+			 curM->next().getField("_id"))));
     }
     }
     break;
@@ -301,31 +303,30 @@ void FXtoBSON::updateDoc(const char &t, const struct tm &tempTM,
 }
 
 void FXtoBSON::aggregateToDB(const char & t,
-			     const struct tm & tempTM,
 			     DBClientConnection &c){
   switch(t){
   case 'h':
     c.update(dbH, find(time0, 'h'),
 	     BSON("$addToSet" << BSON("quote" <<
-				      aggregate('h',time0))),true);
+				      aggregate('h'))),true);
     Hour.setZero(60, 5);
     break;
   case 'd':
-    c.update(dbD, find(tempTM, 'd'),
+    c.update(dbD, find(time0, 'd'),
 	     BSON("$addToSet" << BSON("quote" <<
-				      aggregate('d', time0))), true); 
+				      aggregate('d'))), true); 
     Day.setZero(24, 5);
     break;
   case 'm':
-    c.update(dbM, find(tempTM, 'm'),
+    c.update(dbM, find(time0, 'm'),
 	     BSON("$addToSet" << BSON("quote" <<
-				      aggregate('m', time0))), true);
+				      aggregate('m'))), true);
     Month.setZero();
     break;
   case 'y':
-    c.update(dbY, find(tempTM, 'y'),
+    c.update(dbY, find(time0, 'y'),
 	     BSON("$addToSet" << BSON("quote" <<
-				      aggregate('y', time0))), true);
+				      aggregate('y'))), true);
     Year.setZero();
     break;
   }
@@ -348,7 +349,6 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
   DBClientConnection c;
   c.connect("localhost");
   string dropheader, line, checkEOF;
-  struct tm tempTM;
   headers();
   getTime0();
   csvFile.open(file.c_str());
@@ -357,37 +357,37 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
 
   while(getline(csvFile, line)){
     if(!line.empty()){
-      BSONObj QUOTE = headerQuote(line, tempTM);
-      BSONObj document = buildQuoteAt(tempTM.tm_min, QUOTE);
-      addMinToDB(tempTM, document, c);
-      if(tempTM.tm_hour == time0.tm_hour)
-	hourToEigen(tempTM.tm_min, QUOTE); 
-      if(tempTM.tm_hour != time0.tm_hour & time0.tm_hour != -1){
-	aggregateToDB('h', tempTM, c);
-	hourToEigen(tempTM.tm_min, QUOTE);
-    	updateDoc('d', time0, c);
+      BSONObj QUOTE = headerQuote(line, time1);
+      BSONObj document = buildQuoteAt(time1.tm_min, QUOTE);
+      addMinToDB(document, c);
+      if(time1.tm_hour == time0.tm_hour)
+	hourToEigen(time1.tm_min, QUOTE); 
+      if(time1.tm_hour != time0.tm_hour & time0.tm_hour != -1){
+	aggregateToDB('h', c);
+	hourToEigen(time1.tm_min, QUOTE);
+    	updateDoc('d', c);
       }
-      if(tempTM.tm_mday != time0.tm_mday){
-	aggregateToDB('d', tempTM, c);
-	updateDoc('m', time0, c);
+      if(time1.tm_mday != time0.tm_mday){
+	aggregateToDB('d', c);
+	updateDoc('m', c);
       }
-      if(tempTM.tm_mon != time0.tm_mon){
-	aggregateToDB('m', tempTM, c);
-	updateDoc('y', time0, c);
+      if(time1.tm_mon != time0.tm_mon){
+	aggregateToDB('m', c);
+	updateDoc('y', c);
       }
-      if(tempTM.tm_year != time0.tm_year){
-	aggregateToDB('y', time0, c);
+      if(time1.tm_year != time0.tm_year){
+	aggregateToDB('y', c);
       }
       if(csvFile.peek() == -1){
-	aggregateToDB('h', time0, c);
-	aggregateToDB('d', time0, c);
-	aggregateToDB('m', time0, c);
-	aggregateToDB('y', time0, c);
-	updateDoc('d', time0, c);
-	updateDoc('m', time0, c);
-	updateDoc('y', time0, c);
+	aggregateToDB('h', c);
+	aggregateToDB('d', c);
+	aggregateToDB('m', c);
+	aggregateToDB('y', c);
+	updateDoc('d', c);
+	updateDoc('m', c);
+	updateDoc('y', c);
       }
-      time0 = tempTM;
+      time0 = time1;
     } // if end
   } // While end;
 
