@@ -153,16 +153,16 @@ VectorXd FXtoBSON::reduce(const char &a){
     int i = 59;
     while(!Hour(j,0))
       j++;
+    while(!Hour(i, 3))
+      i--;
     reduc(0) = Hour(j,0);
     reduc(1) = Hour.col(1).maxCoeff();
+    reduc(3) = Hour(i, 3);
     for(int k = 0; k < 60; k++){
       if(Hour(k, 2) == 0)
 	Hour(k, 2) = 100;
     }
     reduc(2) = Hour.col(2).minCoeff();
-    while(!Hour(i, 3))
-      i--;
-    reduc(3) = Hour(i, 3);
     reduc(4) = Hour.col(4).sum();
     }
     break;
@@ -171,12 +171,16 @@ VectorXd FXtoBSON::reduce(const char &a){
     int i = 23;
     while(!Day(j,0))
       j++;
-    reduc(0) = Day(j,0);
-    reduc(1) = Day.col(1).maxCoeff();
-    reduc(2) = Day.col(2).minCoeff();
     while(!Day(i, 3))
       i--;
+    reduc(0) = Day(j,0);
     reduc(3) = Day(i, 3);
+    reduc(1) = Day.col(1).maxCoeff();
+    for(int k = 0; k < 24; k++){
+      if(Day(k, 2) == 0)
+	Day(k, 2) = 100;
+    }
+    reduc(2) = Day.col(2).minCoeff();
     reduc(4) = Day.col(4).sum();
     }
     break;
@@ -185,12 +189,16 @@ VectorXd FXtoBSON::reduce(const char &a){
     int i = 30;
     while(!Month(j,0))
       j++;
-    reduc(0) = Month(j,0);
-    reduc(1) = Month.col(1).maxCoeff();
-    reduc(2) = Month.col(2).minCoeff();
     while(!Month(i, 3))
       i--;
     reduc(3) = Month(i, 3);
+    reduc(0) = Month(j,0);
+    reduc(1) = Month.col(1).maxCoeff();
+    for(int k = 0; k <= 30; k++){
+      if(Month(k, 2) == 0)
+	Month(k, 2) = 100;
+    }
+    reduc(2) = Month.col(2).minCoeff();
     reduc(4) = Month.col(4).sum();
     }
     break;
@@ -199,12 +207,16 @@ VectorXd FXtoBSON::reduce(const char &a){
     int i = 11;
     while(!Year(j,0))
       j++;
-    reduc(0) = Year(j,0);
-    reduc(1) = Year.col(1).maxCoeff();
-    reduc(2) = Year.col(2).minCoeff();
     while(!Year(i, 3))
       i--;
     reduc(3) = Year(i, 3);
+    reduc(0) = Year(j,0);
+    reduc(1) = Year.col(1).maxCoeff();
+    for(int k = 0; k <= 11; k++){
+      if(Year(k, 2) == 0)
+	Year(k, 2) = 100;
+    }
+    reduc(2) = Year.col(2).minCoeff();
     reduc(4) = Year.col(4).sum();
     break;
   }
@@ -258,45 +270,45 @@ void FXtoBSON::updateDoc(const char &t, DBClientConnection &c){
       BSONObj findHour = find(time1, 'h');
       BSONObj findDay = find(time1, 'd');
       auto_ptr<DBClientCursor> curH = c.query(dbH, findHour, 0, 0, &projId);
-    if(curH->more()){
-      c.update(dbD, findDay,
-	       BSON("$setOnInsert" << emptyDoc('d')), true);
-      c.update(dbD, findDay,
-	       BSON("$set" << 
-		    BSON(to_string(time1.tm_hour) 
-			 << curH->next().getField("_id"))));
-    } 
+      if(curH->more()){
+	c.update(dbD, findDay,
+		 BSON("$setOnInsert" << emptyDoc('d')), true);
+	c.update(dbD, findDay,
+		 BSON("$set" << 
+		      BSON(to_string(time1.tm_hour) 
+			   << curH->next().getField("_id"))));
+      } 
     }
     break;
   case 'm':
     {
       BSONObj findDay = find(time1, 'd');
       BSONObj findMonth = find(time1, 'm');
-    auto_ptr<DBClientCursor> curD = c.query(dbD, findDay, 0, 0, &projId);
-    if(curD->more()){
-       c.update(dbM, findMonth,
-	       BSON("$setOnInsert" << emptyDoc(t)), true);
-       c.update(dbM, findMonth,
-	       BSON("$set" <<
-		    BSON(to_string(time1.tm_mday) <<
-			 curD->next().getField("_id"))));
-    }
+      auto_ptr<DBClientCursor> curD = c.query(dbD, findDay, 0, 0, &projId);
+      if(curD->more()){
+	c.update(dbM, findMonth,
+		 BSON("$setOnInsert" << emptyDoc('m')), true);
+	c.update(dbM, findMonth,
+		 BSON("$set" <<
+		      BSON(to_string(time1.tm_mday)
+			   << curD->next().getField("_id"))));
+      }
     }
     break;
   case 'y':
     {
-    BSONObj findMonth = find(time1, 'm');
-    BSONObj findYear = find(time1, 'y');
-    auto_ptr<DBClientCursor> curM = c.query(dbM, findMonth,
-					    0, 0, &projId);
-    if(curM->more()){
-      c.update(dbY, findYear,
-	       BSON("$setOnInsert" << emptyDoc(t)), true);
-      c.update(dbY, findYear,
-	       BSON("$set" << 
-		    BSON(to_string(time1.tm_mon) <<
-			 curM->next().getField("_id"))));
-    }
+      BSONObj findMonth = find(time1, 'm');
+      BSONObj findYear = find(time1, 'y');
+      auto_ptr<DBClientCursor> curM = c.query(dbM, findMonth,
+					      0, 0, &projId);
+      if(curM->more()){
+	c.update(dbY, findYear,
+		 BSON("$setOnInsert" << emptyDoc('y')), true);
+	c.update(dbY, findYear,
+		 BSON("$set" << 
+		      BSON(to_string(time1.tm_mon) <<
+			   curM->next().getField("_id"))));
+      }
     }
     break;
   } // switch end
@@ -307,25 +319,25 @@ void FXtoBSON::aggregateToDB(const char & t,
   switch(t){
   case 'h':
     c.update(dbH, find(time0, 'h'),
-	     BSON("$addToSet" << BSON("quote" <<
+	     BSON("$set" << BSON("quote" <<
 				      aggregate('h'))),true);
     Hour.setZero(60, 5);
     break;
   case 'd':
     c.update(dbD, find(time0, 'd'),
-	     BSON("$addToSet" << BSON("quote" <<
+	     BSON("$set" << BSON("quote" <<
 				      aggregate('d'))), true); 
     Day.setZero(24, 5);
     break;
   case 'm':
     c.update(dbM, find(time0, 'm'),
-	     BSON("$addToSet" << BSON("quote" <<
+	     BSON("$set" << BSON("quote" <<
 				      aggregate('m'))), true);
     Month.setZero();
     break;
   case 'y':
     c.update(dbY, find(time0, 'y'),
-	     BSON("$addToSet" << BSON("quote" <<
+	     BSON("$set" << BSON("quote" <<
 				      aggregate('y'))), true);
     Year.setZero();
     break;
@@ -379,12 +391,13 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
 	aggregateToDB('y', c);
       }
       if(csvFile.peek() == -1){
+	time0 = time1;
 	aggregateToDB('h', c);
 	aggregateToDB('d', c);
-	aggregateToDB('m', c);
-	aggregateToDB('y', c);
 	updateDoc('d', c);
+	aggregateToDB('m', c);
 	updateDoc('m', c);
+	aggregateToDB('y', c);
 	updateDoc('y', c);
       }
       time0 = time1;
