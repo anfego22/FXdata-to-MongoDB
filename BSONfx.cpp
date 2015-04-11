@@ -232,7 +232,7 @@ BSONObj FXtoBSON::aggregate(const char &a){
     break;
   case 'd':
     reduc = reduce('d');
-    Month.row(time1.tm_mday) = reduc;
+    Month.row(time1.tm_mday-1) = reduc;
     break;
   case 'm':
     reduc = reduce('m');
@@ -365,7 +365,7 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
   csvFile.open(file.c_str());
   getline(csvFile, dropheader);
   projId = BSON("_id" << 1);
-
+  
   while(getline(csvFile, line)){
     if(!line.empty()){
       BSONObj QUOTE = headerQuote(line, time1);
@@ -380,13 +380,16 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
       }
       if(time1.tm_mday != time0.tm_mday){
 	aggregateToDB('d', c);
+	hourToEigen(time1.tm_min, QUOTE);
 	updateDoc('m', c);
       }
       if(time1.tm_mon != time0.tm_mon){
 	aggregateToDB('m', c);
+	hourToEigen(time1.tm_min, QUOTE);
 	updateDoc('y', c);
       }
       if(time1.tm_year != time0.tm_year){
+	hourToEigen(time1.tm_min, QUOTE);
 	aggregateToDB('y', c);
       }
       if(csvFile.peek() == -1){
