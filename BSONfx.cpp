@@ -31,7 +31,6 @@ void FXtoBSON::getTime0(){
       strptime(cell.c_str(), formatt.c_str(), &time0);
     csvFile.close();
   }
-  time0.tm_hour = -1;
   csvFile.seekg(0);
 }
 
@@ -371,26 +370,31 @@ FXtoBSON::FXtoBSON(const string &file_, const string &formatt_,
       BSONObj QUOTE = headerQuote(line, time1);
       BSONObj document = buildQuoteAt(time1.tm_min, QUOTE);
       addMinToDB(document, c);
-      if(time1.tm_hour == time0.tm_hour)
-	hourToEigen(time1.tm_min, QUOTE); 
-      if(time1.tm_hour != time0.tm_hour & time0.tm_hour != -1){
-	aggregateToDB('h', c);
+      if(time1.tm_hour == time0.tm_hour &&
+	 time1.tm_mday == time0.tm_mday &&
+	 time1.tm_mon == time0.tm_mon &&
+	 time1.tm_year == time0.tm_year)
 	hourToEigen(time1.tm_min, QUOTE);
-    	updateDoc('d', c);
-      }
-      if(time1.tm_mday != time0.tm_mday){
-	aggregateToDB('d', c);
-	hourToEigen(time1.tm_min, QUOTE);
-	updateDoc('m', c);
-      }
-      if(time1.tm_mon != time0.tm_mon){
-	aggregateToDB('m', c);
-	hourToEigen(time1.tm_min, QUOTE);
-	updateDoc('y', c);
-      }
-      if(time1.tm_year != time0.tm_year){
-	hourToEigen(time1.tm_min, QUOTE);
-	aggregateToDB('y', c);
+      else {
+	if(time1.tm_hour != time0.tm_hour){
+	  aggregateToDB('h', c);
+	  hourToEigen(time1.tm_min, QUOTE);
+	  updateDoc('d', c); 
+	}
+	if(time1.tm_mday != time0.tm_mday){
+	  aggregateToDB('d', c);
+	  hourToEigen(time1.tm_min, QUOTE);
+	  updateDoc('m', c);
+	}
+	if(time1.tm_mon != time0.tm_mon){
+	  aggregateToDB('m', c);
+	  hourToEigen(time1.tm_min, QUOTE);
+	  updateDoc('y', c);
+	}
+	if(time1.tm_year != time0.tm_year){
+	  aggregateToDB('y', c);
+	  hourToEigen(time1.tm_min, QUOTE);
+	}
       }
       if(csvFile.peek() == -1){
 	time0 = time1;
